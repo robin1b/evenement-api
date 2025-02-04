@@ -1,24 +1,46 @@
-// Imports
-import "dotenv/config";
-import cors from "cors";
-import express from "express";
-import { notFound } from "./controllers/notFoundController";
-import testRoutes from "./routes/exampleRoutes";
-import { helloMiddleware } from "./middleware/exampleMiddleware";
+// server.ts
+import express, { Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+import eventRoutes from './routes/eventRoutes';
+import swaggerUi from 'swagger-ui-express';
+import swaggerDocument from './swagger';
 
-// Variables
+dotenv.config();
+
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
+// Middleware voor JSON-parsing
 app.use(express.json());
 
-// Routes
-app.use("/api", helloMiddleware, testRoutes);
-app.all("*", notFound);
+// Routes voor evenementen
+app.use('/events', eventRoutes);
 
-// Server Listening
-app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}! 🚀`);
+// Swagger-documentatie beschikbaar maken op /api-docs
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
+// 404-handler voor niet-bestaande routes
+app.use((req: Request, res: Response, next: NextFunction) => {
+  res.status(404).json({ message: 'Route niet gevonden' });
 });
+
+// Globale error-handler
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Interne serverfout' });
+});
+
+// Configuratie via environment-variabelen
+const PORT = process.env.PORT || 5000;
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/eventsdb';
+
+// Verbinden met MongoDB en starten van de server
+mongoose
+  .connect(MONGO_URI)
+  .then(() => {
+    console.log('Verbonden met MongoDB');
+    app.listen(PORT, () => console.log(`Server draait op poort ${PORT}`));
+  })
+  .catch((error) => {
+    console.error('Fout bij verbinden met MongoDB:', error);
+  });
